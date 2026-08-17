@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="K-12 英语学习 — 小学 / 初中 / 高中，单词读音、音标、考点、用法">
+  <title>英语词汇学习 · 小学 / 初中 / 高中</title>
+  <link rel="stylesheet" href="styles.css?v=23">
+</head>
+<body data-stage="elementary">
+  <div class="app">
+    <!-- ===== Left Sidebar Navigation ===== -->
+    <aside class="sidebar-nav">
+      <div class="sidebar-brand">
+        <div class="brand-icon" id="brandIcon"></div>
+        <div class="brand-text">
+          <h1>词汇通</h1>
+          <p>English Vocab</p>
+        </div>
+      </div>
+      <nav class="stage-nav" id="stageTabs" role="tablist" aria-label="学习阶段"></nav>
+    </aside>
+
+    <!-- ===== Right Content Area ===== -->
+    <main class="content-area">
+      <!-- Content header: stage title + search -->
+      <div class="content-header">
+        <div class="stage-title" id="stageTitle"></div>
+        <div class="header-actions">
+          <button class="shuffle-btn" id="shuffleBtn" title="打乱单词顺序" hidden>
+            <span id="shuffleIcon"></span>
+            <span>打乱顺序</span>
+          </button>
+          <div class="search-box">
+            <span id="searchIcon"></span>
+            <input type="text" id="searchInput" placeholder="搜索单词 / 释义 / 音标…" aria-label="搜索单词">
+          </div>
+        </div>
+      </div>
+
+      <!-- Horizontal Tab bar (inside right content area) -->
+      <div class="tab-bar" id="unitBar">
+        <ul class="tab-list" id="unitList"></ul>
+      </div>
+
+      <!-- Top pagination -->
+      <div class="pagination pagination-top" id="paginationTop"></div>
+
+      <!-- Word grid -->
+      <section class="word-grid" id="wordGrid" aria-live="polite"></section>
+
+      <!-- Bottom pagination -->
+      <div class="pagination pagination-bottom" id="paginationBottom"></div>
+    </main>
+  </div>
+
+  <!-- ===== Modal ===== -->
+  <div class="modal-backdrop" id="backdrop" role="dialog" aria-modal="true" aria-label="单词详情">
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <!-- ===== Toast ===== -->
+  <div class="toast" id="toast" role="status"></div>
+
+  <!-- ===== Scripts ===== -->
+  <script>
+    document.getElementById("brandIcon").innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>';
+    document.getElementById("searchIcon").innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
+  </script>
+  <script src="middle-data.js?v=23"></script>
+  <script src="elementary-data.js?v=23"></script>
+  <script src="tense-data.js?v=23"></script>
+  <script src="tense-quiz-data.js?v=23"></script>
+  <script src="mock.js?v=23"></script>
+  <script src="api.js?v=23"></script>
+  <script src="app.js?v=23"></script>
+</body>
+</html>
