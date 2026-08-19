@@ -1200,16 +1200,15 @@ ul { list-style: none; }
    Tense Stage Styles
    ============================================================ */
 
-/* Tense Selector Bar (horizontal tabs) */
+/* Tense Selector Bar — matches .tab-list/.unit-item style */
 .tense-selector-bar {
-  display: flex;
-  flex-wrap: nowrap;
+  display: inline-flex;
   gap: 4px;
-  padding: 6px;
-  margin-bottom: 24px;
   background: var(--surface-2);
-  border-radius: var(--r-lg);
+  padding: 4px;
+  border-radius: var(--r-md);
   border: 1px solid var(--border);
+  min-width: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
@@ -1223,29 +1222,29 @@ ul { list-style: none; }
 }
 .tense-selector-tab {
   flex-shrink: 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-sub);
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.2s ease;
+  text-align: left;
   white-space: nowrap;
 }
 .tense-selector-tab:hover {
-  color: var(--accent);
+  color: var(--text);
   background: var(--surface);
 }
 .tense-selector-tab.active {
-  background: linear-gradient(135deg, var(--accent), var(--primary));
-  color: #fff;
-  box-shadow: var(--sh-sm);
-  font-weight: 700;
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 600;
 }
 .tense-selector-icon {
   font-size: 16px;
@@ -1256,11 +1255,11 @@ ul { list-style: none; }
 }
 
 .tense-container {
+  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 820px;
-  margin: 0 auto;
+  width: 100%;
   padding: 8px 0 40px;
 }
 
@@ -1511,8 +1510,9 @@ ul { list-style: none; }
    Tense Quiz Styles
    ============================================================ */
 .tense-quiz-section {
-  max-width: 820px;
-  margin: 40px auto 0;
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: 40px 0 0;
   padding-top: 32px;
   border-top: 2px dashed var(--border);
 }

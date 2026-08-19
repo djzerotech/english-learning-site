@@ -80,13 +80,24 @@ let ttsAudio = null;
 let currentPlayingBtn = null;
 
 const audioBlobCache = new Map();
+const audioElCache = new Map();
 const AUDIO_CACHE_MAX = 150;
 
-/* 检测是否为本地环境（有 TTS 代理服务器） */
-const HAS_LOCAL_TTS = location.hostname === "127.0.0.1" || location.hostname === "localhost";
+/* 动态检测是否有本地 TTS 代理服务器（运行时探测，避免误判） */
+let HAS_LOCAL_TTS = false;
+
+(async () => {
+  try {
+    const resp = await fetch(`/tts?word=test`, { method: "HEAD" });
+    HAS_LOCAL_TTS = resp.ok;
+  } catch (e) {
+    HAS_LOCAL_TTS = false;
+  }
+})();
 
 function getAudioUrl(word) {
   if (audioBlobCache.has(word)) return audioBlobCache.get(word);
+  if (audioElCache.has(word)) return audioElCache.get(word).src;
   if (HAS_LOCAL_TTS) return `/tts?word=${encodeURIComponent(word)}`;
   return `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=2`;
 }
@@ -121,27 +132,50 @@ async function preloadAudioBatch(wordList) {
       }
     }
   } else {
-    wordList.filter(w => w && !audioBlobCache.has(w)).slice(0, 20).forEach(w => preloadSingle(w));
+    wordList.filter(w => w && !audioBlobCache.has(w) && !audioElCache.has(w)).slice(0, 20).forEach(w => preloadSingle(w));
   }
 }
 
 function preloadSingle(word) {
-  if (!word || audioBlobCache.has(word)) return;
-  const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=2`;
-  fetch(url)
-    .then(r => r.ok ? r.blob() : null)
-    .then(blob => { if (blob && blob.size > 100) audioBlobCache.set(word, URL.createObjectURL(blob)); })
-    .catch(() => {});
+  if (!word || audioBlobCache.has(word) || audioElCache.has(word)) return;
+  if (HAS_LOCAL_TTS) {
+    const url = `/tts?word=${encodeURIComponent(word)}`;
+    fetch(url)
+      .then(r => r.ok ? r.blob() : null)
+      .then(blob => { if (blob && blob.size > 100) audioBlobCache.set(word, URL.createObjectURL(blob)); })
+      .catch(() => {});
+  } else {
+    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=2`;
+    const audio = new Audio(url);
+    audio.preload = "auto";
+    audio.load();
+    audioElCache.set(word, audio);
+    if (audioElCache.size > AUDIO_CACHE_MAX) {
+      const keys = [...audioElCache.keys()];
+      audioElCache.delete(keys[0]);
+    }
+  }
 }
 
 function webSpeechFallback(word) {
   if (!("speechSynthesis" in window)) return;
-  const u = new SpeechSynthesisUtterance(word);
-  u.lang  = "en-US";
-  u.rate  = 0.9;
-  u.pitch = 1;
   speechSynthesis.cancel();
-  speechSynthesis.speak(u);
+
+  const speakNow = () => {
+    const u = new SpeechSynthesisUtterance(word);
+    u.lang  = "en-US";
+    u.rate  = 0.9;
+    u.pitch = 1;
+    speechSynthesis.speak(u);
+  };
+
+  // Chrome 需要先加载语音列表才能播放
+  const voices = speechSynthesis.getVoices();
+  if (voices.length === 0) {
+    speechSynthesis.addEventListener("voiceschanged", speakNow, { once: true });
+  } else {
+    speakNow();
+  }
 }
 
 function speak(word, btnEl) {
@@ -165,13 +199,22 @@ function speak(word, btnEl) {
     if (currentPlayingBtn === btnEl) currentPlayingBtn = null;
   };
 
-  // 优先使用 blob 缓存（hover 预加载 / 页面预加载已就绪 → 零延迟播放）
-  // 无缓存时走服务器 URL（不带 cache-buster，让浏览器 HTTP 缓存生效）
+  // 优先使用 blob 缓存（TTS 模式）或 Audio 元素缓存（Youdao 模式）→ 零延迟播放
   const cachedBlobUrl = audioBlobCache.get(word);
-  const audioUrl = cachedBlobUrl || getAudioUrl(word);
-  ttsAudio = new Audio(audioUrl);
+  const cachedEl = audioElCache.get(word);
 
-  if (!cachedBlobUrl) {
+  if (cachedBlobUrl) {
+    ttsAudio = new Audio(cachedBlobUrl);
+  } else if (cachedEl) {
+    ttsAudio = cachedEl;
+    ttsAudio.onended = null;
+    ttsAudio.onerror = null;
+    ttsAudio.ontimeupdate = null;
+    ttsAudio.onplaying = null;
+    ttsAudio.ondurationchange = null;
+    try { ttsAudio.currentTime = 0; } catch (e) {}
+  } else {
+    ttsAudio = new Audio(getAudioUrl(word));
     preloadSingle(word);
   }
   ttsAudio.volume = 1.0;
@@ -250,6 +293,11 @@ function renderTabs() {
 /* ---------- Render: unit bar ---------- */
 function renderSidebar() {
   const stage = getStage();
+
+  // 清理时态标签栏（如果从时态切换回普通阶段）
+  const oldTenseBar = $("#unitBar").querySelector(".tense-selector-bar");
+  if (oldTenseBar) oldTenseBar.remove();
+  $("#unitList").style.display = "";
 
   // 时态阶段：只显示初中/高中两个Tab
   if (stage.isTense) {
@@ -859,6 +907,7 @@ function showToast(msg) {
 const TENSE_ICONS = {
   t1: "📅", t2: "⏮️", t3: "⏭️", t4: "🔄",
   t5: "🏃", t6: "🏃‍♂️", t7: "✅", t8: "⏪",
+  t_all: "📝",
   t9: "⏳", t10: "⌛", t11: "🔮", t12: "📈", t13: "📊", t14: "🎯",
 };
 
@@ -884,18 +933,7 @@ function renderTense() {
   `;
 
   const grid = $("#wordGrid");
-
-  // 时态选择tab栏
-  const tenseTabBar = `
-    <div class="tense-selector-bar">
-      ${tenseList.map((t, idx) => `
-        <button class="tense-selector-tab${idx === state.tenseSelectedIdx ? " active" : ""}" data-tense-idx="${idx}">
-          <span class="tense-selector-icon">${TENSE_ICONS[t.id] || "📝"}</span>
-          <span class="tense-selector-name">${t.name}</span>
-        </button>
-      `).join("")}
-    </div>
-  `;
+  const unitBar = $("#unitBar");
 
   // 只渲染选中的时态卡片
   const t = tenseList[state.tenseSelectedIdx];
@@ -978,10 +1016,27 @@ function renderTense() {
     </div>
   `;
 
-  grid.innerHTML = tenseTabBar + tenseCard;
+  // 时态标签栏渲染到 #unitBar（与高中阶段分类标签位置一致）
+  // 隐藏初中/高中阶段Tab，显示时态选择Tab
+  $("#unitList").style.display = "none";
+  let tenseBar = unitBar.querySelector(".tense-selector-bar");
+  if (!tenseBar) {
+    tenseBar = document.createElement("div");
+    tenseBar.className = "tense-selector-bar";
+    unitBar.appendChild(tenseBar);
+  }
+  tenseBar.innerHTML = tenseList.map((t, idx) => `
+    <button class="tense-selector-tab${idx === state.tenseSelectedIdx ? " active" : ""}" data-tense-idx="${idx}">
+      <span class="tense-selector-icon">${TENSE_ICONS[t.id] || "📝"}</span>
+      <span class="tense-selector-name">${t.name}</span>
+    </button>
+  `).join("");
+
+  // 时态卡片渲染到 #wordGrid
+  grid.innerHTML = tenseCard;
 
   // 绑定时态tab切换
-  grid.querySelectorAll(".tense-selector-tab").forEach(tab => {
+  tenseBar.querySelectorAll(".tense-selector-tab").forEach(tab => {
     tab.addEventListener("click", () => {
       state.tenseSelectedIdx = parseInt(tab.dataset.tenseIdx);
       // 同步练习题tab
